@@ -18,6 +18,8 @@ const SEMGREP_RULE_IDS = new Set([
   'app-safety.sensitive-data-in-logs',
   'app-safety.sensitive-data-in-analytics',
   'app-safety.sensitive-data-in-http-errors',
+  'app-safety.exposed-debug-route',
+  'app-safety.csrf-disabled-or-bypassed',
 ]);
 
 type CommandResult = { code: number | null; stdout: string; stderr: string };

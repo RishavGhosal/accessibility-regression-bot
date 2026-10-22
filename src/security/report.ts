@@ -24,6 +24,7 @@ const codeIds = new Set([
   'app-safety.sql-string-concatenation', 'app-safety.unsafe-html-insertion',
   'app-safety.sensitive-data-in-logs', 'app-safety.sensitive-data-in-analytics',
   'app-safety.sensitive-data-in-http-errors',
+  'app-safety.exposed-debug-route', 'app-safety.csrf-disabled-or-bypassed',
 ]);
 const httpIds = new Set([
   'http.hsts.missing', 'http.csp.missing', 'http.content-type-options.missing',
@@ -64,6 +65,8 @@ const review: Record<string, { asvs: string; guidance: string }> = {
   'app-safety.sensitive-data-in-logs': { asvs: 'v5.0.0-14.2.4', guidance: 'Remove or redact the sensitive field before logging; review log access and retention.' },
   'app-safety.sensitive-data-in-analytics': { asvs: 'v5.0.0-14.2.3', guidance: 'Omit sensitive fields from analytics events and review the destination and data policy.' },
   'app-safety.sensitive-data-in-http-errors': { asvs: 'v5.0.0-16.5.1', guidance: 'Return a generic client error and keep sensitive diagnostic details out of the response.' },
+  'app-safety.exposed-debug-route': { asvs: 'v5.0.0-13.4.2', guidance: 'Remove debug functionality from production or restrict it with server-side authorization and deployment controls.' },
+  'app-safety.csrf-disabled-or-bypassed': { asvs: 'v5.0.0-3.5.1', guidance: 'Review the exception and require a CSRF defense for credentialed state-changing requests.' },
   'http.hsts.missing': { asvs: 'v5.0.0-3.4.1', guidance: 'Set an appropriate Strict-Transport-Security policy on HTTPS responses.' },
   'http.csp.missing': { asvs: 'v5.0.0-3.4.3', guidance: 'Define a Content-Security-Policy for trusted resources and review its directives.' },
   'http.content-type-options.missing': { asvs: 'v5.0.0-3.4.4', guidance: 'Set X-Content-Type-Options: nosniff on responses.' },

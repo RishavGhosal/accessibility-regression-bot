@@ -68,4 +68,17 @@ describe('security report sanitization and gate', () => {
       guidance: 'Omit sensitive fields from analytics events and review the destination and data policy.',
     });
   });
+  it('maps browser-boundary review rules to fixed ASVS guidance', () => {
+    const report = buildSecurityReport([{
+      name: 'code', status: 'complete', findings: [
+        { id: 'app-safety.exposed-debug-route', category: 'code', severity: 'medium', title: 'ignored', guidance: 'ignored' },
+        { id: 'app-safety.csrf-disabled-or-bypassed', category: 'code', severity: 'medium', title: 'ignored', guidance: 'ignored' },
+      ],
+    }]);
+    expect(report.findings.map(({ id, asvs }) => [id, asvs])).toEqual([
+      ['app-safety.exposed-debug-route', 'v5.0.0-13.4.2'],
+      ['app-safety.csrf-disabled-or-bypassed', 'v5.0.0-3.5.1'],
+    ]);
+    expect(JSON.stringify(report)).not.toContain('ignored');
+  });
 });

@@ -1,0 +1,35 @@
+rules:
+  - id: app-safety.exposed-debug-route
+    message: An Express-style route with a debug path may expose internal diagnostics; confirm it is protected or removed from production.
+    severity: WARNING
+    languages: [javascript, typescript]
+    patterns:
+      - pattern: $APP.$METHOD($PATH, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: '^(?:get|post|put|patch|delete|all)$'
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: '(?i)debug'
+
+  - id: app-safety.csrf-disabled-or-bypassed
+    message: This configuration explicitly disables or bypasses CSRF protection; confirm the exception is intentional and safely scoped.
+    severity: WARNING
+    languages: [javascript, typescript]
+    patterns:
+      - pattern-either:
+          - pattern: "$CSRF({ ..., enabled: false, ... })"
+          - pattern: "$CSRF({ ..., csrf: false, ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'POST', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'post', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'PUT', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'put', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'PATCH', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'patch', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'DELETE', ...], ... })"
+          - pattern: "$CSRF({ ..., ignoreMethods: [..., 'delete', ...], ... })"
+          - pattern: $CSRF.disable(...)
+          - pattern: $CSRF.skip(...)
+      - metavariable-regex:
+          metavariable: $CSRF
+          regex: '(?i)csrf'

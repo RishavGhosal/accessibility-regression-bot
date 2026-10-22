@@ -38,14 +38,15 @@ The portable [authorization fixtures](../skills/app-safety/fixtures/authorizatio
 
 The local Semgrep rules also flag selected flows from request or user fields into logs, analytics calls, and Express-style error responses. These findings are review leads. The rules do not enumerate every sensitive field, logger, telemetry SDK, or framework response API. Read the relevant source and data policy before changing behavior.
 
+The [abuse fixtures](../skills/app-safety/fixtures/abuse/README.md) provide bounded, adapter-driven checks for login throttling and CSRF defenses on cookie-authenticated state changes. Their bundled in-memory tests validate the runner; an app-specific adapter must call the real login and state-changing paths. The local Semgrep rules also flag explicit CSRF bypasses and possible Express-style debug routes for review. They cannot prove the absence of rate limiting, CSRF protection, or debug exposure in a deployed app.
+
 Accessibility remains part of the app safety workflow. Keep semantic HTML, keyboard access, focus management, labels, contrast, and status/error announcements in scope. Automated scans cover only a subset of accessibility requirements; they cannot replace keyboard, screen-reader, zoom, and expert review. Public descriptions must not claim “secure” or “fully accessible” based on these checks.
 
 ## Prioritized follow-up areas
 
 When broader coverage is needed, work through these areas in order and keep findings tied to the app's actual architecture:
 
-1. **Abuse and browser boundaries:** review rate limits, CSRF protections, debug endpoints, and production configuration.
-2. **AI-specific boundaries:** test prompt injection paths, limit tool permissions, and protect API keys and other credentials.
-3. **Performance and reliability:** check timeouts, resource limits, failure handling, and accessibility under slow or partial responses.
+1. **AI-specific boundaries:** test prompt injection paths, limit tool permissions, and protect API keys and other credentials.
+2. **Performance and reliability:** check timeouts, resource limits, failure handling, and accessibility under slow or partial responses.
 
 These are roadmap areas for targeted review, not checks that a clean scanner run has already verified.

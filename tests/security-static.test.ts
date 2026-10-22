@@ -98,4 +98,18 @@ describe('runStaticChecks', () => {
     expect(checks[2]?.findings[0]?.id).toBe('app-safety.sensitive-data-in-logs');
     expect(JSON.stringify(checks)).not.toContain('PRIVATE_PERSONAL_VALUE');
   });
+
+  it('accepts bundled browser-boundary IDs as review findings', async () => {
+    const root = await fixture();
+    const runner = async (command: string) => command === 'gitleaks'
+      ? { code: 0, stdout: '', stderr: '' }
+      : { code: 0, stdout: JSON.stringify({ results: [
+        { check_id: 'app-safety.exposed-debug-route', path: 'src/server.ts', start: { line: 9 }, extra: { severity: 'WARNING' } },
+        { check_id: 'app-safety.csrf-disabled-or-bypassed', path: 'src/server.ts', start: { line: 11 }, extra: { severity: 'WARNING' } },
+      ] }), stderr: '' };
+    const checks = await runStaticChecks(root, { runner });
+    expect(checks[2]?.findings.map((finding) => finding.id)).toEqual([
+      'app-safety.exposed-debug-route', 'app-safety.csrf-disabled-or-bypassed',
+    ]);
+  });
 });
