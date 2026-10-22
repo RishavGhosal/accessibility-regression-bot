@@ -81,7 +81,7 @@ export async function loadConfig(file: string): Promise<RegressionConfig> {
 
 export function validateBaseUrl(value: string): string {
   let url: URL;
-  try { url = new URL(value); } catch { throw new Error(`Invalid URL: ${value}`); }
+  try { url = new URL(value); } catch { throw new Error('Invalid preview URL.'); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw new Error('Preview URLs must use HTTP(S) and must not include credentials.');
   }

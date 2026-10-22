@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createServer } from 'node:net';
 import type { RegressionConfig } from './config.js';
 
-export interface BuildPair { baseUrl: string; prUrl: string; cleanup: () => Promise<void> }
+export interface BuildPair { baseUrl: string; prUrl: string; headDirectory: string; cleanup: () => Promise<void> }
 export interface BuildOptions {
   cwd: string;
   baseRef: string;
@@ -122,7 +122,7 @@ export async function startBuildPair(options: BuildOptions): Promise<BuildPair> 
       waitReady(`${baseUrl}${buildConfig.readyPath}`, baseProcess, options.readinessTimeoutMs ?? 60_000),
       waitReady(`${prUrl}${buildConfig.readyPath}`, headProcess, options.readinessTimeoutMs ?? 60_000),
     ]);
-    return { baseUrl, prUrl, cleanup };
+    return { baseUrl, prUrl, headDirectory: headDir, cleanup };
   } catch (error) {
     await cleanup();
     throw error;

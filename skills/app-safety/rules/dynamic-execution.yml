@@ -1,0 +1,10 @@
+rules:
+  - id: app-safety.dynamic-evaluation
+    message: Dynamic evaluation can execute untrusted input.
+    severity: ERROR
+    languages: [javascript, typescript]
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+          - pattern: Function(...)

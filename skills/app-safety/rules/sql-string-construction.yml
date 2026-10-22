@@ -1,0 +1,13 @@
+rules:
+  - id: app-safety.sql-string-concatenation
+    message: Build SQL with parameters instead of concatenating dynamic values.
+    severity: ERROR
+    languages: [javascript, typescript]
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query($SQL + $INPUT)
+          - pattern: $DB.query(`...${$INPUT}...`)
+          - pattern: $DB.execute($SQL + $INPUT)
+          - pattern: $DB.execute(`...${$INPUT}...`)
+          - pattern: $DB.raw($SQL + $INPUT)
+          - pattern: $DB.raw(`...${$INPUT}...`)

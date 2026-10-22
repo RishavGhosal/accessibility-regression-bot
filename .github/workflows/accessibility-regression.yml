@@ -19,6 +19,7 @@ jobs:
           base-ref: ${{ github.event.pull_request.base.sha }}
           head-ref: ${{ github.event.pull_request.head.sha }}
           output: a11y-regression-report
+          security-check: 'true'
       - name: Upload report, even when scanning fails
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 
 const escapeMarkdown = (value) => {
   let text = String(value).replaceAll('\r', ' ').replaceAll('\n', ' ');
@@ -19,7 +19,44 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-export function renderComment(report) {
+function renderSecuritySection(report, expected) {
+  if (!report) return expected ? ['', '## App safety check', '', '**Security report unavailable:** The scan did not produce a reviewable result. Inspect the scan workflow.'] : [];
+  const valid = isRecord(report)
+    && report.schemaVersion === 1
+    && ['complete', 'incomplete'].includes(report.status)
+    && isRecord(report.summary)
+    && Array.isArray(report.checks) && report.checks.length <= 4
+    && report.checks.every((check) => isRecord(check)
+      && ['secrets', 'dependencies', 'code', 'http'].includes(check.name)
+      && ['complete', 'incomplete', 'skipped'].includes(check.status)
+      && Number.isInteger(check.count) && check.count >= 0)
+    && Array.isArray(report.findings) && report.findings.length <= 2000
+    && report.findings.every((finding) => isRecord(finding)
+      && ['secrets', 'dependencies', 'code', 'http'].includes(finding.category)
+      && ['critical', 'high', 'medium', 'low', 'review'].includes(finding.severity));
+  if (!valid) throw new Error('Unsupported or invalid security report');
+  const lines = ['', '## App safety check', '', 'Security findings are redacted review leads. No matched values or source excerpts are shown. Automated checks cannot establish that an app is secure.', ''];
+  const findings = report.findings.slice(0, 30);
+  if (!findings.length) lines.push('No security findings were reported.');
+  else {
+    lines.push(`Found **${report.findings.length}** finding${report.findings.length === 1 ? '' : 's'} (showing at most 30):`, '');
+    for (const finding of findings) {
+      const category = {
+        secrets: 'Possible credential', dependencies: 'Dependency advisory',
+        code: 'Code pattern', http: 'HTTP configuration',
+      }[finding.category];
+      lines.push(`- **${category}** (${finding.severity}): review the corresponding redacted report entry and affected code or configuration.`);
+    }
+  }
+  const incomplete = report.checks.filter(check => check.status === 'incomplete').map(check => check.name);
+  if (incomplete.length) lines.push('', `**Incomplete checks:** ${incomplete.join(', ')}. These checks provide no clean result.`);
+  if (report.checks.some(check => check.name === 'http' && check.status === 'skipped')) {
+    lines.push('', 'HTTP checks were skipped because no URL was supplied.');
+  }
+  return lines;
+}
+
+export function renderComment(report, securityReport, securityExpected = false) {
   const validSummary = isRecord(report?.summary)
     && ['new', 'existing', 'resolved', 'uncertain'].every((key) => Number.isInteger(report.summary[key]) && report.summary[key] >= 0);
   const validFindings = Array.isArray(report?.findings) && report.findings.every((finding) => isRecord(finding)
@@ -71,19 +108,30 @@ export function renderComment(report) {
   }
   const uncertain = report.summary && Number.isFinite(report.summary.uncertain) ? report.summary.uncertain : 0;
   if (uncertain > 0) lines.push('', `**Uncertain classifications:** ${Math.min(uncertain, 100000)}. These need manual review.`);
-  lines.push('', 'The complete JSON, HTML, Markdown summary, and screenshots are attached to the scan workflow run.');
+  lines.push(...renderSecuritySection(securityReport, securityExpected));
+  lines.push('', 'The redacted security report and accessibility artifacts are attached to the scan workflow run.');
   return lines.join('\n');
 }
 
 if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) {
-  const [input, output] = process.argv.slice(2);
+  const [input, output, securityInput] = process.argv.slice(2);
   if (!input || !output) {
     console.error('Usage: node scripts/pr-comment.mjs <report.json> <comment.md>');
     process.exit(2);
   }
   try {
+    if ((await stat(input)).size > 5_000_000) throw new Error('Accessibility report exceeds size limit');
     const report = JSON.parse(await readFile(input, 'utf8'));
-    await writeFile(output, renderComment(report), { encoding: 'utf8', flag: 'w' });
+    let security;
+    if (securityInput) {
+      try {
+        if ((await stat(securityInput)).size > 5_000_000) throw new Error('Security report exceeds size limit');
+        security = JSON.parse(await readFile(securityInput, 'utf8'));
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    }
+    await writeFile(output, renderComment(report, security, Boolean(securityInput)), { encoding: 'utf8', flag: 'w' });
   } catch (error) {
     console.error(`Cannot create PR comment: ${error.message}`);
     process.exit(1);

@@ -10,6 +10,7 @@ import type { RawFinding, Report, Revision, ScanFailure, Viewport } from './type
 type ScanOptions = {
   baseUrl: string; prUrl: string; pages: string[]; viewport: Viewport; outputDir: string;
   metadata: { baseRef: string; headRef: string };
+  redactEvidence?: boolean;
 };
 
 function pageUrl(origin: string, page: string): string {
@@ -20,7 +21,7 @@ function safeSlug(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 45) || 'finding';
 }
 
-async function scanRevision(revision: Revision, origin: string, pages: string[], viewport: Viewport, outputDir: string): Promise<{ findings: RawFinding[]; failures: ScanFailure[]; screenshots: Map<string, string>; browserVersion: string }> {
+async function scanRevision(revision: Revision, origin: string, pages: string[], viewport: Viewport, outputDir: string, redactEvidence = false): Promise<{ findings: RawFinding[]; failures: ScanFailure[]; screenshots: Map<string, string>; browserVersion: string }> {
   const findings: RawFinding[] = [];
   const failures: ScanFailure[] = [];
   const screenshots = new Map<string, string>();
@@ -68,16 +69,18 @@ async function scanRevision(revision: Revision, origin: string, pages: string[],
             const finding: RawFinding = {
               ruleId: violation.id, impact: node.impact ?? violation.impact ?? null, page: pagePath,
               target, description: node.failureSummary || violation.description || violation.help,
-              helpUrl: violation.helpUrl ?? null, ...(node.html ? { html: node.html } : {}), context,
+              helpUrl: violation.helpUrl ?? null, ...(!redactEvidence && node.html ? { html: node.html } : {}), context,
             };
             findings.push(finding);
-            const fingerprint = createHash('sha256').update(`${revision}\0${pagePath}\0${violation.id}\0${target}\0${context}`).digest('hex').slice(0, 12);
-            const relative = `screenshots/${revision}-${safeSlug(pagePath)}-${safeSlug(violation.id)}-${fingerprint}.png`;
-            try {
-              await page.screenshot({ path: join(outputDir, relative), fullPage: true, animations: 'disabled' });
-              screenshots.set(JSON.stringify([finding.ruleId, finding.page, finding.target, finding.context, revision]), relative);
-            } catch (error) {
-              failures.push({ revision, page: pagePath, message: `Could not capture screenshot for ${violation.id}: ${error instanceof Error ? error.message : String(error)}` });
+            if (!redactEvidence) {
+              const fingerprint = createHash('sha256').update(`${revision}\0${pagePath}\0${violation.id}\0${target}\0${context}`).digest('hex').slice(0, 12);
+              const relative = `screenshots/${revision}-${safeSlug(pagePath)}-${safeSlug(violation.id)}-${fingerprint}.png`;
+              try {
+                await page.screenshot({ path: join(outputDir, relative), fullPage: true, animations: 'disabled' });
+                screenshots.set(JSON.stringify([finding.ruleId, finding.page, finding.target, finding.context, revision]), relative);
+              } catch (error) {
+                failures.push({ revision, page: pagePath, message: `Could not capture screenshot for ${violation.id}: ${error instanceof Error ? error.message : String(error)}` });
+              }
             }
           }
         }
@@ -102,9 +105,9 @@ export async function scanPair(options: ScanOptions): Promise<Report> {
   });
   let base: Awaited<ReturnType<typeof scanRevision>>;
   let head: Awaited<ReturnType<typeof scanRevision>>;
-  try { base = await scanRevision('base', options.baseUrl, options.pages, options.viewport, options.outputDir); }
+  try { base = await scanRevision('base', options.baseUrl, options.pages, options.viewport, options.outputDir, options.redactEvidence); }
   catch (error) { base = failedScan('base', error); }
-  try { head = await scanRevision('head', options.prUrl, options.pages, options.viewport, options.outputDir); }
+  try { head = await scanRevision('head', options.prUrl, options.pages, options.viewport, options.outputDir, options.redactEvidence); }
   catch (error) { head = failedScan('head', error); }
   const failures = [...base.failures, ...head.failures].sort((a, b) => a.revision.localeCompare(b.revision) || a.page.localeCompare(b.page) || a.message.localeCompare(b.message));
   const findings = matchFindings(base.findings, head.findings, failures).map(f => {

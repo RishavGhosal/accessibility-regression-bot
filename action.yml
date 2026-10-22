@@ -1,5 +1,5 @@
 name: Accessibility Regression
-description: Compare accessibility findings between preview URLs or builds.
+description: Compare accessibility findings and optionally run local app safety checks.
 author: Accessibility Regression contributors
 inputs:
   config:
@@ -19,11 +19,15 @@ inputs:
     description: Head git ref (builds mode).
     required: false
   output:
-    description: Output directory for report.json, report.html, summary.md, and screenshots.
+    description: Output directory for accessibility and optional security reports.
     required: false
     default: a11y-regression-report
   fail-on-new:
     description: Exit with failure when new findings are present.
+    required: false
+    default: 'false'
+  security-check:
+    description: Run local security checks and fail on high-confidence exposed credentials.
     required: false
     default: 'false'
 runs:
@@ -44,6 +48,44 @@ runs:
       shell: bash
       run: npx playwright install --with-deps chromium
       working-directory: ${{ github.action_path }}
+    - name: Install Gitleaks
+      if: inputs.security-check == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        tools_dir="$RUNNER_TEMP/app-safety-tools"
+        mkdir -p "$tools_dir"
+        echo "$tools_dir" >> "$GITHUB_PATH"
+        curl --fail --silent --show-error --location --retry 3 \
+          https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+          -o "$tools_dir/gitleaks.tar.gz"
+        tar -xzf "$tools_dir/gitleaks.tar.gz" -C "$tools_dir" gitleaks
+        chmod +x "$tools_dir/gitleaks"
+    - name: Install OSV-Scanner
+      if: inputs.security-check == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        tools_dir="$RUNNER_TEMP/app-safety-tools"
+        mkdir -p "$tools_dir"
+        echo "$tools_dir" >> "$GITHUB_PATH"
+        curl --fail --silent --show-error --location --retry 3 \
+          https://github.com/google/osv-scanner/releases/download/v2.6.0/osv-scanner_linux_amd64 \
+          -o "$tools_dir/osv-scanner"
+        chmod +x "$tools_dir/osv-scanner"
+    - name: Install Semgrep
+      if: inputs.security-check == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        tools_dir="$RUNNER_TEMP/app-safety-tools"
+        mkdir -p "$tools_dir"
+        python3 -m venv "$tools_dir/semgrep-venv"
+        "$tools_dir/semgrep-venv/bin/python" -m pip install --disable-pip-version-check 'semgrep==1.181.0'
+        echo "$tools_dir/semgrep-venv/bin" >> "$GITHUB_PATH"
     - name: Run accessibility comparison
       shell: bash
       env:
@@ -54,6 +96,7 @@ runs:
         A11Y_HEAD_REF: ${{ inputs.head-ref }}
         A11Y_OUTPUT: ${{ inputs.output }}
         A11Y_FAIL_ON_NEW: ${{ inputs.fail-on-new }}
+        A11Y_SECURITY_CHECK: ${{ inputs.security-check }}
       run: |
         args=(scan --config "$A11Y_CONFIG" --output "$A11Y_OUTPUT")
         if [[ -n "$A11Y_BASE_URL" ]]; then args+=(--base-url "$A11Y_BASE_URL"); fi
@@ -61,16 +104,24 @@ runs:
         if [[ -n "$A11Y_BASE_REF" ]]; then args+=(--base-ref "$A11Y_BASE_REF"); fi
         if [[ -n "$A11Y_HEAD_REF" ]]; then args+=(--head-ref "$A11Y_HEAD_REF"); fi
         if [[ "$A11Y_FAIL_ON_NEW" == "true" ]]; then args+=(--fail-on-new); fi
+        if [[ "$A11Y_SECURITY_CHECK" == "true" ]]; then args+=(--security-check); fi
         node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}"
     - name: Add scan summary to the workflow
       if: always()
       shell: bash
       env:
         A11Y_OUTPUT: ${{ inputs.output }}
+        A11Y_SECURITY_CHECK: ${{ inputs.security-check }}
       run: |
         summary="$A11Y_OUTPUT/summary.md"
         if [[ -f "$summary" ]]; then
           cat "$summary" >> "$GITHUB_STEP_SUMMARY"
         else
           echo 'Accessibility scan did not produce a report. Review the action logs; this does not establish accessibility.' >> "$GITHUB_STEP_SUMMARY"
+        fi
+        security_summary="$A11Y_OUTPUT/security-summary.md"
+        if [[ -f "$security_summary" ]]; then
+          cat "$security_summary" >> "$GITHUB_STEP_SUMMARY"
+        elif [[ "$A11Y_SECURITY_CHECK" == "true" ]]; then
+          echo 'App safety check did not produce a report. Review the action logs.' >> "$GITHUB_STEP_SUMMARY"
         fi

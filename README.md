@@ -69,6 +69,20 @@ node dist/cli.js scan --config .a11y-regression.json \
 
 The command writes `a11y-regression-report/report.json`, `report.html`, `summary.md`, and any evidence screenshots. Use `--output DIR` to choose another directory. `--fail-on-new` opts into a nonzero exit when new findings are present; by default findings are informational. When running against untrusted code, use an isolated environment and do not expose secrets or write-capable tokens to the scan process.
 
+## App safety checks and agent skill
+
+The security check is a separate, local-first addition for JavaScript and TypeScript web apps. It uses Gitleaks for possible exposed credentials, OSV-Scanner for known vulnerabilities in JavaScript lockfiles, and a small bundled Semgrep rule set for risky code patterns. An optional URL check reviews HTTP response headers, cookie flags, and CORS. Results are leads for review, not a security certification. See the [app safety guide](docs/app-safety.md) and portable [agent skill](skills/app-safety/SKILL.md).
+
+Install Gitleaks, OSV-Scanner v2, and Semgrep Community Edition on your `PATH` before relying on a complete local result. The CLI records a missing or failed tool as incomplete; it never treats that as a clean scan. The dependency checker may query an advisory service with dependency identifiers. The bundled Semgrep rules run locally with metrics off, and credentials are never validated against a live service.
+
+```sh
+node dist/cli.js check --output app-safety-report
+node dist/cli.js check --url http://127.0.0.1:3000 --output app-safety-report
+node dist/cli.js scan --config .a11y-regression.json --base-ref origin/main --head-ref HEAD --security-check
+```
+
+`check` scans the current working tree and writes `security-report.json` and `security-summary.md`. `scan --security-check` also checks the head preview while it is running and writes those files beside the existing accessibility report. In this mode, accessibility reports omit raw DOM snippets and screenshots from CI artifacts. Security reports contain rule identifiers, severity, safe locations, and general fix guidance; they never contain matched secret values or source excerpts. Only high-confidence provider-token and private-key patterns fail the security gate by default. If Gitleaks cannot complete, the gate fails with an incomplete status. Other findings are informational.
+
 ## GitHub Action
 
 The action entrypoint is `action.yml`. In another repository, pin a released tag (or preferably a full commit SHA) and configure your mode:
@@ -103,6 +117,8 @@ jobs:
 
 For preview configuration, replace the two ref inputs with `base-url` and `pr-url`. The Action builds its own CLI dependencies, installs Chromium, and reads the config and writes the output in the checked-out caller workspace. `fail-on-new` defaults to `false`. The checked-in default config tests this repository's fixture; replace it for your app.
 
+Set `security-check: 'true'` to enable the app safety check. Existing Action users remain on accessibility-only behavior unless they opt in. The Action installs pinned Gitleaks, OSV-Scanner, and Semgrep versions for this mode. Its PR comment shows a bounded, redacted list of security findings and never copies scanner output, source excerpts, or secret values. Scanner setup failures appear as incomplete checks; a secret-scanner failure fails the gate.
+
 The repository includes two example workflows. The scan workflow runs on `pull_request` with `contents: read`; it executes the pull request's code, so keep credentials out of that job. The separate `workflow_run` workflow receives write permission only to post a comment. It checks that the completed run belongs to this repository and workflow, that the associated pull request still has the run's head SHA, and downloads the artifact by the exact run ID. It checks out comment tooling from the repository's default branch and parses the report only as data. It does not check out or execute the pull request revision. Missing artifacts and failed validation skip the comment.
 
 The comment workflow can handle fork pull requests when GitHub provides the report artifact. It confirms the API's base repository, head repository, and SHA match the workflow run before commenting. Do not switch the scanner to `pull_request_target` or give PR-executed code a write token. Restrict `workflow_run` to the named scan workflow and retain the API validation when adapting it. Pin third-party Actions to full commit SHAs for hardened supply-chain use.
@@ -110,6 +126,8 @@ The comment workflow can handle fork pull requests when GitHub provides the repo
 ## Report and interpretation
 
 `report.json` uses schema version 1. It records `status` (`complete` or `incomplete`), counts for new, existing, resolved, and uncertain findings, per-finding rule/page/target/evidence/rationale, scan failures, and revision/tool metadata. `report.html` and `summary.md` are convenient renderings. Screenshots are evidence for review; they do not decide whether a finding is valid. Classification is heuristic: inspect uncertain items and the underlying pages before making a release or conformance decision.
+
+The optional `security-report.json` has its own version 1 schema and check-completion statuses. Its findings describe the current head workspace; they are not classified as newly introduced or pre-existing. A clean, skipped, or incomplete security result does not establish that the app is secure.
 
 The PR comment lists only findings classified as new and includes scan failures and uncertainty caveats. The complete artifact is the source for reviewing existing, resolved, and uncertain findings. It is informational by default; opt into `fail-on-new` only after deciding that behavior fits your CI policy.
 

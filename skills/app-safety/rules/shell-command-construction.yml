@@ -1,0 +1,15 @@
+rules:
+  - id: app-safety.shell-command-concatenation
+    message: Constructing shell commands with dynamic input can allow command injection.
+    severity: ERROR
+    languages: [javascript, typescript]
+    patterns:
+      - pattern-either:
+          - pattern: exec($PREFIX + $INPUT)
+          - pattern: exec(`...${$INPUT}...`)
+          - pattern: execSync($PREFIX + $INPUT)
+          - pattern: execSync(`...${$INPUT}...`)
+          - pattern: child_process.exec($PREFIX + $INPUT)
+          - pattern: child_process.exec(`...${$INPUT}...`)
+          - pattern: child_process.execSync($PREFIX + $INPUT)
+          - pattern: child_process.execSync(`...${$INPUT}...`)

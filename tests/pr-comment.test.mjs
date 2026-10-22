@@ -43,6 +43,24 @@ describe('PR comment rendering', () => {
     expect(() => renderComment(report({ schemaVersion: 2 }))).toThrow(/invalid accessibility report/i);
     expect(renderComment(report({ findings: [] })).toLowerCase()).toContain('no new findings');
   });
+  it('renders bounded security findings without copying secrets or source fields', () => {
+    const secret = 'ghp_FAKE_SECRET_FOR_TEST_123456789';
+    const security = {
+      schemaVersion: 1, status: 'complete',
+      summary: { findings: 1, gatedSecrets: 1, incompleteChecks: 0 },
+      checks: [{ name: 'secrets', status: 'complete', count: 1 }],
+      findings: [{ category: 'secrets', severity: 'high', id: secret, title: secret,
+        guidance: secret, location: { path: secret, url: `https://example.test/${secret}` } }],
+    };
+    const body = renderComment(report(), security, true);
+    expect(body).toContain('Possible credential');
+    expect(body).not.toContain(secret);
+    expect(body).not.toContain('https://example.test');
+    expect(() => renderComment(report(), { ...security, checks: [{ name: 'secrets', status: 'unsafe', count: 1 }] }, true)).toThrow(/invalid security report/i);
+  });
+  it('flags an expected but missing security artifact', () => {
+    expect(renderComment(report(), undefined, true)).toContain('Security report unavailable');
+  });
 });
 
 describe('workflow privilege boundaries', () => {
@@ -52,6 +70,7 @@ describe('workflow privilege boundaries', () => {
     expect(yaml).toContain('contents: read');
     expect(yaml).not.toContain('pull_request_target');
     expect(yaml).toContain('uses: ./');
+    expect(yaml).toContain("security-check: 'true'");
   });
 
   it('uses workflow_run only for trusted comment tooling and downloads the exact run artifact', async () => {
@@ -65,5 +84,12 @@ describe('workflow privilege boundaries', () => {
     expect(yaml).not.toContain('ref: ${{ github.event.workflow_run.head_sha }}');
     expect(yaml).toContain("if: steps.artifact.outcome == 'success'");
     expect(yaml).toContain("if: steps.prepare.outcome == 'success'");
+    expect(yaml).toContain('report-download/security-report.json');
+  });
+  it('keeps security checks optional for existing Action consumers', async () => {
+    const yaml = await readFile(new URL('../action.yml', import.meta.url), 'utf8');
+    expect(yaml).toContain('security-check:');
+    expect(yaml).toContain("default: 'false'");
+    expect(yaml).toContain('A11Y_SECURITY_CHECK');
   });
 });

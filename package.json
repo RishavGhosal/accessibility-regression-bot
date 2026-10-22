@@ -7,7 +7,7 @@
   "bin": {
     "accessibility-regression": "dist/cli.js"
   },
-  "files": ["dist/", "README.md", "LICENSE"],
+  "files": ["dist/", "skills/app-safety/", "docs/app-safety.md", "README.md", "LICENSE"],
   "engines": {
     "node": ">=24"
   },

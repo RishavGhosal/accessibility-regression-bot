@@ -1,0 +1,10 @@
+rules:
+  - id: app-safety.unsafe-html-insertion
+    message: Inserting dynamic content as HTML can allow cross-site scripting.
+    severity: WARNING
+    languages: [javascript, typescript]
+    patterns:
+      - pattern-either:
+          - pattern: $ELEMENT.innerHTML = $INPUT
+          - pattern: $ELEMENT.outerHTML = $INPUT
+          - pattern: $ELEMENT.insertAdjacentHTML(..., $INPUT)
