@@ -85,4 +85,17 @@ describe('runStaticChecks', () => {
     expect(checks[1]).toEqual({ name: 'dependencies', status: 'skipped', findings: [] });
     expect(commands).not.toContain('osv-scanner');
   });
+
+  it('keeps bundled privacy rule IDs while discarding matched data from Semgrep output', async () => {
+    const root = await fixture();
+    const runner = async (command: string) => command === 'gitleaks'
+      ? { code: 0, stdout: '', stderr: '' }
+      : { code: 0, stdout: JSON.stringify({ results: [{
+        check_id: 'app-safety.sensitive-data-in-logs', path: 'src/server.ts',
+        start: { line: 4 }, extra: { severity: 'WARNING', message: 'PRIVATE_PERSONAL_VALUE' },
+      }] }), stderr: '' };
+    const checks = await runStaticChecks(root, { runner });
+    expect(checks[2]?.findings[0]?.id).toBe('app-safety.sensitive-data-in-logs');
+    expect(JSON.stringify(checks)).not.toContain('PRIVATE_PERSONAL_VALUE');
+  });
 });

@@ -71,7 +71,7 @@ The command writes `a11y-regression-report/report.json`, `report.html`, `summary
 
 ## App safety checks and agent skill
 
-The security check is a separate, local-first addition for JavaScript and TypeScript web apps. It uses Gitleaks for possible exposed credentials, OSV-Scanner for known vulnerabilities in JavaScript lockfiles, and a small bundled Semgrep rule set for risky code patterns. An optional URL check reviews HTTP response headers, cookie flags, and CORS. Results are leads for review, not a security certification. See the [app safety guide](docs/app-safety.md) and portable [agent skill](skills/app-safety/SKILL.md).
+The security check is a separate, local-first addition for JavaScript and TypeScript web apps. It uses Gitleaks for possible exposed credentials, OSV-Scanner for known vulnerabilities in JavaScript lockfiles, and a small bundled Semgrep rule set for risky code and selected privacy flows into logs, analytics, and error responses. An optional URL check reviews HTTP response headers, cookie flags, and CORS. Results are leads for review, not a security certification. See the [app safety guide](docs/app-safety.md), portable [agent skill](skills/app-safety/SKILL.md), and [authorization fixtures](skills/app-safety/fixtures/authorization/README.md).
 
 Install Gitleaks, OSV-Scanner v2, and Semgrep Community Edition on your `PATH` before relying on a complete local result. The CLI records a missing or failed tool as incomplete; it never treats that as a clean scan. The dependency checker may query an advisory service with dependency identifiers. The bundled Semgrep rules run locally with metrics off, and credentials are never validated against a live service.
 
@@ -81,7 +81,7 @@ node dist/cli.js check --url http://127.0.0.1:3000 --output app-safety-report
 node dist/cli.js scan --config .a11y-regression.json --base-ref origin/main --head-ref HEAD --security-check
 ```
 
-`check` scans the current working tree and writes `security-report.json` and `security-summary.md`. `scan --security-check` also checks the head preview while it is running and writes those files beside the existing accessibility report. In this mode, accessibility reports omit raw DOM snippets and screenshots from CI artifacts. Security reports contain rule identifiers, severity, safe locations, and general fix guidance; they never contain matched secret values or source excerpts. Only high-confidence provider-token and private-key patterns fail the security gate by default. If Gitleaks cannot complete, the gate fails with an incomplete status. Other findings are informational.
+`check` scans the current working tree and writes `security-report.json` and `security-summary.md`. `scan --security-check` also checks the head preview while it is running and writes those files beside the existing accessibility report. In this mode, accessibility reports omit raw DOM snippets and screenshots from CI artifacts. Security reports contain rule identifiers, severity, safe locations, targeted fix guidance, and versioned OWASP ASVS review pointers; they never contain matched secret values or source excerpts. Only high-confidence provider-token and private-key patterns fail the security gate by default. If Gitleaks cannot complete, the gate fails with an incomplete status. Other findings are informational.
 
 ## GitHub Action
 

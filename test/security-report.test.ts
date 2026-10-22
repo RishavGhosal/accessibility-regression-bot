@@ -51,4 +51,21 @@ describe('security report sanitization and gate', () => {
     expect(report.findings[0]?.id).toBe('app-safety:code-pattern');
     expect(report.findings[0]?.location?.path).toBe('src/example.ts');
   });
+
+  it('adds fixed fix guidance and versioned ASVS review pointers without copying scanner text', () => {
+    const sensitive = 'PRIVATE_PERSONAL_VALUE';
+    const report = buildSecurityReport([{
+      name: 'code', status: 'complete', findings: [{
+        id: 'app-safety.sensitive-data-in-analytics', category: 'code', severity: 'medium',
+        title: sensitive, guidance: sensitive, reference: sensitive,
+        location: { path: 'src/analytics.ts', line: 7 },
+      }],
+    }]);
+    expect(JSON.stringify(report)).not.toContain(sensitive);
+    expect(report.findings[0]).toMatchObject({
+      id: 'app-safety.sensitive-data-in-analytics',
+      asvs: 'v5.0.0-14.2.3',
+      guidance: 'Omit sensitive fields from analytics events and review the destination and data policy.',
+    });
+  });
 });

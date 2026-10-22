@@ -30,7 +30,13 @@ Checks run locally by default. The skill does not upload source code, reports, e
 
 A high-confidence secret finding is a stop gate. The agent should halt follow-on execution that might expose or use the value, omit the value from logs and reports, and report only a redacted location and secret type. The owner should revoke or rotate it through the normal process. Reports must also redact authorization headers, cookies, personal data, and sensitive prompt contents.
 
-Security findings should be mapped to relevant OWASP ASVS control areas (including version when known) as a prioritization aid. A mapping does not establish that the app conforms to ASVS. State which tools and checks ran, what they found, what was skipped, and what remains unverified.
+Security findings include a review pointer to the relevant [OWASP ASVS 5.0.0](https://github.com/OWASP/ASVS/tree/v5.0.0_release/5.0/en) requirement when the bundled rule has a specific match. Use it to prioritize human review, not as evidence that the app conforms to ASVS. State which tools and checks ran, what they found, what was skipped, and what remains unverified.
+
+## Authorization fixtures and privacy review
+
+The portable [authorization fixtures](../skills/app-safety/fixtures/authorization/README.md) provide eight deterministic role, ownership, tenant, and unauthenticated scenarios. Adapt them to your app's protected route or service and an isolated test database. Their bundled in-memory contract test checks the runner; it does not test your app until you supply an adapter.
+
+The local Semgrep rules also flag selected flows from request or user fields into logs, analytics calls, and Express-style error responses. These findings are review leads. The rules do not enumerate every sensitive field, logger, telemetry SDK, or framework response API. Read the relevant source and data policy before changing behavior.
 
 Accessibility remains part of the app safety workflow. Keep semantic HTML, keyboard access, focus management, labels, contrast, and status/error announcements in scope. Automated scans cover only a subset of accessibility requirements; they cannot replace keyboard, screen-reader, zoom, and expert review. Public descriptions must not claim “secure” or “fully accessible” based on these checks.
 
@@ -38,10 +44,8 @@ Accessibility remains part of the app safety workflow. Keep semantic HTML, keybo
 
 When broader coverage is needed, work through these areas in order and keep findings tied to the app's actual architecture:
 
-1. **Authorization fixtures:** exercise roles, ownership boundaries, tenant isolation, and denied access in deterministic tests.
-2. **Privacy in logs, analytics, and errors:** prevent sensitive data from entering telemetry, client-visible errors, or diagnostic output.
-3. **Abuse and browser boundaries:** review rate limits, CSRF protections, debug endpoints, and production configuration.
-4. **AI-specific boundaries:** test prompt injection paths, limit tool permissions, and protect API keys and other credentials.
-5. **Performance and reliability:** check timeouts, resource limits, failure handling, and accessibility under slow or partial responses.
+1. **Abuse and browser boundaries:** review rate limits, CSRF protections, debug endpoints, and production configuration.
+2. **AI-specific boundaries:** test prompt injection paths, limit tool permissions, and protect API keys and other credentials.
+3. **Performance and reliability:** check timeouts, resource limits, failure handling, and accessibility under slow or partial responses.
 
 These are roadmap areas for targeted review, not checks that a clean scanner run has already verified.

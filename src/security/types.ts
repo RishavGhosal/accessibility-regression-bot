@@ -5,6 +5,7 @@ export type SecurityFinding = {
   title: string;
   location?: { path?: string; line?: number; url?: string };
   guidance: string;
+  asvs?: string;
   reference?: string;
   gate?: boolean;
 };

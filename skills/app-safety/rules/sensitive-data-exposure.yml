@@ -1,0 +1,89 @@
+rules:
+  - id: app-safety.sensitive-data-in-logs
+    message: Sensitive request or user data reaches a log sink; redact or omit it.
+    severity: WARNING
+    languages: [javascript, typescript]
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQ.headers.authorization
+          - pattern: $REQ.headers.cookie
+          - pattern: $REQ.cookies
+          - pattern: $REQ.body.password
+          - pattern: $REQ.body.email
+          - pattern: $REQ.body.phone
+          - pattern: $REQ.user.email
+          - pattern: $REQ.user.phone
+          - pattern: $REQ.user.name
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: console.log(..., $DATA, ...)
+              - pattern: console.info(..., $DATA, ...)
+              - pattern: console.warn(..., $DATA, ...)
+              - pattern: console.error(..., $DATA, ...)
+              - pattern: console.debug(..., $DATA, ...)
+              - pattern: $LOGGER.log(..., $DATA, ...)
+              - pattern: $LOGGER.info(..., $DATA, ...)
+              - pattern: $LOGGER.warn(..., $DATA, ...)
+              - pattern: $LOGGER.error(..., $DATA, ...)
+              - pattern: $LOGGER.debug(..., $DATA, ...)
+          - focus-metavariable: $DATA
+
+  - id: app-safety.sensitive-data-in-analytics
+    message: Sensitive request or user data reaches an analytics event; omit or de-identify it.
+    severity: WARNING
+    languages: [javascript, typescript]
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQ.headers.authorization
+          - pattern: $REQ.headers.cookie
+          - pattern: $REQ.cookies
+          - pattern: $REQ.body.password
+          - pattern: $REQ.body.email
+          - pattern: $REQ.body.phone
+          - pattern: $REQ.user.email
+          - pattern: $REQ.user.phone
+          - pattern: $REQ.user.name
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: analytics.track(..., $DATA, ...)
+              - pattern: analytics.capture(..., $DATA, ...)
+              - pattern: analytics.identify(..., $DATA, ...)
+              - pattern: $ANALYTICS.track(..., $DATA, ...)
+              - pattern: $ANALYTICS.capture(..., $DATA, ...)
+              - pattern: $ANALYTICS.identify(..., $DATA, ...)
+          - focus-metavariable: $DATA
+
+  - id: app-safety.sensitive-data-in-http-errors
+    message: Sensitive request or user data reaches an HTTP error response; return a generic error instead.
+    severity: WARNING
+    languages: [javascript, typescript]
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQ.headers.authorization
+          - pattern: $REQ.headers.cookie
+          - pattern: $REQ.cookies
+          - pattern: $REQ.body.password
+          - pattern: $REQ.body.email
+          - pattern: $REQ.body.phone
+          - pattern: $REQ.user.email
+          - pattern: $REQ.user.phone
+          - pattern: $REQ.user.name
+    pattern-sinks:
+      # Status expressions are a heuristic: recognize literal errors and common error-status names.
+      - patterns:
+          - pattern: $RES.status($STATUS).json($DATA)
+          - metavariable-regex:
+              metavariable: $STATUS
+              regex: '(?i)^(?:[45][0-9]{2}|statusCode|(?:error|err)\.status)$'
+          - focus-metavariable: $DATA
+      - patterns:
+          - pattern: $RES.status($STATUS).send($DATA)
+          - metavariable-regex:
+              metavariable: $STATUS
+              regex: '(?i)^(?:[45][0-9]{2}|statusCode|(?:error|err)\.status)$'
+          - focus-metavariable: $DATA

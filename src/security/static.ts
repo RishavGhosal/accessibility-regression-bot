@@ -15,6 +15,9 @@ const SEMGREP_RULE_IDS = new Set([
   'app-safety.shell-command-concatenation',
   'app-safety.sql-string-concatenation',
   'app-safety.unsafe-html-insertion',
+  'app-safety.sensitive-data-in-logs',
+  'app-safety.sensitive-data-in-analytics',
+  'app-safety.sensitive-data-in-http-errors',
 ]);
 
 type CommandResult = { code: number | null; stdout: string; stderr: string };

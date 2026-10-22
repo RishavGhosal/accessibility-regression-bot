@@ -22,6 +22,8 @@ const gatedSecretIds = new Set([
 const codeIds = new Set([
   'app-safety.dynamic-evaluation', 'app-safety.shell-command-concatenation',
   'app-safety.sql-string-concatenation', 'app-safety.unsafe-html-insertion',
+  'app-safety.sensitive-data-in-logs', 'app-safety.sensitive-data-in-analytics',
+  'app-safety.sensitive-data-in-http-errors',
 ]);
 const httpIds = new Set([
   'http.hsts.missing', 'http.csp.missing', 'http.content-type-options.missing',
@@ -53,9 +55,33 @@ const guidance: Record<SecurityFinding['category'], string> = {
   http: 'Review the response policy and configure the relevant header or cookie option.',
 };
 
+// Review pointers to OWASP ASVS 5.0.0. A finding does not establish conformance.
+const review: Record<string, { asvs: string; guidance: string }> = {
+  'app-safety.dynamic-evaluation': { asvs: 'v5.0.0-1.3.2', guidance: 'Replace dynamic code execution with explicit operations. Review any user-controlled input that reaches the interpreter.' },
+  'app-safety.shell-command-concatenation': { asvs: 'v5.0.0-1.2.5', guidance: 'Use an argument-array process API without a shell and allowlist any user-controlled arguments.' },
+  'app-safety.sql-string-concatenation': { asvs: 'v5.0.0-1.2.4', guidance: 'Use parameterized queries or safe ORM bindings instead of assembling query text.' },
+  'app-safety.unsafe-html-insertion': { asvs: 'v5.0.0-3.2.2', guidance: 'Use textContent for plain text or sanitize intentionally supported HTML with a vetted library.' },
+  'app-safety.sensitive-data-in-logs': { asvs: 'v5.0.0-14.2.4', guidance: 'Remove or redact the sensitive field before logging; review log access and retention.' },
+  'app-safety.sensitive-data-in-analytics': { asvs: 'v5.0.0-14.2.3', guidance: 'Omit sensitive fields from analytics events and review the destination and data policy.' },
+  'app-safety.sensitive-data-in-http-errors': { asvs: 'v5.0.0-16.5.1', guidance: 'Return a generic client error and keep sensitive diagnostic details out of the response.' },
+  'http.hsts.missing': { asvs: 'v5.0.0-3.4.1', guidance: 'Set an appropriate Strict-Transport-Security policy on HTTPS responses.' },
+  'http.csp.missing': { asvs: 'v5.0.0-3.4.3', guidance: 'Define a Content-Security-Policy for trusted resources and review its directives.' },
+  'http.content-type-options.missing': { asvs: 'v5.0.0-3.4.4', guidance: 'Set X-Content-Type-Options: nosniff on responses.' },
+  'http.cookie.secure.missing': { asvs: 'v5.0.0-3.3.1', guidance: 'Set Secure on cookies sent over HTTPS.' },
+  'http.cookie.httponly.missing': { asvs: 'v5.0.0-3.3.4', guidance: 'Set HttpOnly when client-side scripts do not need access to the cookie.' },
+  'http.cookie.samesite.missing': { asvs: 'v5.0.0-3.3.2', guidance: 'Choose a SameSite policy based on the cookie purpose and cross-site flows.' },
+  'http.cookie.samesite.none': { asvs: 'v5.0.0-3.3.2', guidance: 'Set Secure for a SameSite=None cookie and review whether cross-site access is required.' },
+  'http.cors.wildcard-credentials': { asvs: 'v5.0.0-3.4.2', guidance: 'Use a trusted-origin allowlist and review credentialed cross-origin responses.' },
+  'http.cors.wildcard': { asvs: 'v5.0.0-3.4.2', guidance: 'Confirm wildcard origin access is intended and responses contain no sensitive data.' },
+  'http.cors.null-origin': { asvs: 'v5.0.0-3.4.2', guidance: 'Review whether null-origin clients should be allowed and use a trusted-origin allowlist.' },
+};
+
 function safeFinding(value: SecurityFinding): SecurityFinding {
   const category = categories.has(value.category) ? value.category : 'code';
   const severity = severities.has(value.severity) ? value.severity : 'review';
+  const id = safeFindingId(value);
+  const area = review[id];
+  const asvs = area?.asvs ?? (category === 'secrets' ? 'v5.0.0-13.3.1' : category === 'dependencies' ? 'v5.0.0-15.2.1' : undefined);
   const location: SecurityFinding['location'] = {};
   const line = value.location?.line;
   if (typeof line === 'number' && Number.isInteger(line) && line > 0 && line < 1_000_000) {
@@ -72,12 +98,13 @@ function safeFinding(value: SecurityFinding): SecurityFinding {
     } catch { /* Drop untrusted locations. */ }
   }
   return {
-    id: safeFindingId(value),
+    id,
     category,
     severity,
     title: titles[category],
     ...(Object.keys(location).length ? { location } : {}),
-    guidance: guidance[category],
+    guidance: area?.guidance ?? guidance[category],
+    ...(asvs ? { asvs } : {}),
     ...(value.gate === true && category === 'secrets' && gatedSecretIds.has(value.id) ? { gate: true } : {}),
   };
 }
@@ -125,7 +152,7 @@ export async function writeSecurityReport(report: SecurityReport, outputDir: str
       const where = finding.location?.path
         ? ` in \`${finding.location.path}${finding.location.line ? `:${finding.location.line}` : ''}\``
         : finding.location?.url ? ` at ${finding.location.url}` : finding.location?.line ? ` at line ${finding.location.line}` : '';
-      lines.push(`- ${finding.category} / ${finding.severity} / ${finding.id}${where}: ${finding.guidance}`);
+      lines.push(`- ${finding.category} / ${finding.severity} / ${finding.id}${where}: ${finding.guidance}${finding.asvs ? ` Review: OWASP ASVS ${finding.asvs}.` : ''}`);
     }
   }
   await writeFile(path.join(outputDir, 'security-summary.md'), `${lines.join('\n')}\n`, 'utf8');
