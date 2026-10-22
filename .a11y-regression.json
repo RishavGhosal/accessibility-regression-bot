@@ -1,0 +1,11 @@
+{
+  "mode": "builds",
+  "pages": ["/", "/pricing"],
+  "viewport": { "width": 1280, "height": 800 },
+  "builds": {
+    "install": ["npm", "ci"],
+    "build": ["npm", "run", "build"],
+    "start": ["node", "examples/site.mjs"],
+    "readyPath": "/"
+  }
+}

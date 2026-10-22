@@ -1,0 +1,29 @@
+name: Accessibility regression scan
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run comparison (PR code executes with read-only permissions)
+        uses: ./
+        with:
+          config: .a11y-regression.json
+          base-ref: ${{ github.event.pull_request.base.sha }}
+          head-ref: ${{ github.event.pull_request.head.sha }}
+          output: a11y-regression-report
+      - name: Upload report, even when scanning fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-regression-report
+          path: a11y-regression-report/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,76 @@
+name: Accessibility Regression
+description: Compare accessibility findings between preview URLs or builds.
+author: Accessibility Regression contributors
+inputs:
+  config:
+    description: Path to the JSON configuration file relative to the checked-out workspace.
+    required: false
+    default: .a11y-regression.json
+  base-url:
+    description: Base preview URL (previews mode).
+    required: false
+  pr-url:
+    description: Head or PR preview URL (previews mode).
+    required: false
+  base-ref:
+    description: Base git ref (builds mode).
+    required: false
+  head-ref:
+    description: Head git ref (builds mode).
+    required: false
+  output:
+    description: Output directory for report.json, report.html, summary.md, and screenshots.
+    required: false
+    default: a11y-regression-report
+  fail-on-new:
+    description: Exit with failure when new findings are present.
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+    - name: Install action dependencies
+      shell: bash
+      run: npm ci
+      working-directory: ${{ github.action_path }}
+    - name: Build CLI
+      shell: bash
+      run: npm run build
+      working-directory: ${{ github.action_path }}
+    - name: Install Playwright Chromium
+      shell: bash
+      run: npx playwright install --with-deps chromium
+      working-directory: ${{ github.action_path }}
+    - name: Run accessibility comparison
+      shell: bash
+      env:
+        A11Y_CONFIG: ${{ inputs.config }}
+        A11Y_BASE_URL: ${{ inputs.base-url }}
+        A11Y_PR_URL: ${{ inputs.pr-url }}
+        A11Y_BASE_REF: ${{ inputs.base-ref }}
+        A11Y_HEAD_REF: ${{ inputs.head-ref }}
+        A11Y_OUTPUT: ${{ inputs.output }}
+        A11Y_FAIL_ON_NEW: ${{ inputs.fail-on-new }}
+      run: |
+        args=(scan --config "$A11Y_CONFIG" --output "$A11Y_OUTPUT")
+        if [[ -n "$A11Y_BASE_URL" ]]; then args+=(--base-url "$A11Y_BASE_URL"); fi
+        if [[ -n "$A11Y_PR_URL" ]]; then args+=(--pr-url "$A11Y_PR_URL"); fi
+        if [[ -n "$A11Y_BASE_REF" ]]; then args+=(--base-ref "$A11Y_BASE_REF"); fi
+        if [[ -n "$A11Y_HEAD_REF" ]]; then args+=(--head-ref "$A11Y_HEAD_REF"); fi
+        if [[ "$A11Y_FAIL_ON_NEW" == "true" ]]; then args+=(--fail-on-new); fi
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}"
+    - name: Add scan summary to the workflow
+      if: always()
+      shell: bash
+      env:
+        A11Y_OUTPUT: ${{ inputs.output }}
+      run: |
+        summary="$A11Y_OUTPUT/summary.md"
+        if [[ -f "$summary" ]]; then
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo 'Accessibility scan did not produce a report. Review the action logs; this does not establish accessibility.' >> "$GITHUB_STEP_SUMMARY"
+        fi

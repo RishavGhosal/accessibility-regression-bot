@@ -1,0 +1,5 @@
+{
+  "mode": "previews",
+  "pages": ["/", "/pricing"],
+  "viewport": { "width": 1280, "height": 800 }
+}

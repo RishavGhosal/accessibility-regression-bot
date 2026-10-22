@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+a11y-regression-report/
+.playwright-browsers/
+.smoke-*/
+.test-git-*/
+.cli-test-*/
+*.tsbuildinfo
